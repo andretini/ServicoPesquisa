@@ -2,18 +2,41 @@ services:
   web:
     build: .
     environment:
-      MONGO_URI: mongodb://mongo:27017/TestePy
+      MONGO_URI: mongodb://mongo:27017           # << sem database no path
+      MONGO_DB: TestePy                          # << banco usado pela app
+      MONGO_COLLECTION: search_cache
+      #DOTNET_BASE_URL: http://dotnet:5014
+      DOTNET_BASE_URL: http://host.docker.internal:5014   # << aponta para o .NET no host
+      CACHE_TTL_MINUTES: 10
     depends_on:
       mongo:
         condition: service_healthy
+      #dotnet:
+        #condition: service_healthy
     ports:
       - "8000:8000"
+    volumes:
+      - ./:/app                                   # hot reload
     command: uvicorn server:app --reload --port=8000 --host=0.0.0.0
+    # se o seu arquivo for server.py com app lá dentro, troque para: server:app
+
+
+#  dotnet:
+#    image: your-dotnet-service-image              # substitua pela sua imagem/tag
+#    environment:
+#      ASPNETCORE_URLS: http://+:5000
+#    ports:
+#      - "5000:5000"
+#    healthcheck:
+#      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]  # ajuste a rota
+#      interval: 5s
+#      timeout: 3s
+#      retries: 10
 
   mongo:
     image: mongo:7
     ports:
-      - "27017:27017"   # optional (only if you want to connect from host)
+      - "27017:27017"   # opcional (só se quiser acessar do host)
     volumes:
       - mongo_data:/data/db
     healthcheck:
