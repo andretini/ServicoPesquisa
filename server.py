@@ -20,7 +20,7 @@ from contextlib import asynccontextmanager
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017") # localhost:27017
 MONGO_DB = os.getenv("MONGO_DB", "searchdb")
 MONGO_COLLECTION = os.getenv("MONGO_COLLECTION", "search_cache")
-DOTNET_BASE_URL = os.getenv("DOTNET_BASE_URL", "http://dotnet:5014")  # localhost:5014
+DOTNET_BASE_URL = os.getenv("DOTNET_BASE_URL", "http://dotnet:5014")
 CACHE_TTL_MINUTES = int(os.getenv("CACHE_TTL_MINUTES", "10"))
 
 

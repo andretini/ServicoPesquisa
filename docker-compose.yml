@@ -2,41 +2,56 @@ services:
   web:
     build: .
     environment:
-      MONGO_URI: mongodb://mongo:27017           # << sem database no path
-      MONGO_DB: TestePy                          # << banco usado pela app
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: TestePy
       MONGO_COLLECTION: search_cache
-      #DOTNET_BASE_URL: http://dotnet:5014
-      DOTNET_BASE_URL: http://host.docker.internal:5014   # << aponta para o .NET no host
+      DOTNET_BASE_URL: http://catalogoservice:80
       CACHE_TTL_MINUTES: 10
     depends_on:
       mongo:
         condition: service_healthy
-      #dotnet:
-        #condition: service_healthy
     ports:
-      - "8000:8000"
+      - "8000"
     volumes:
-      - ./:/app                                   # hot reload
-    command: uvicorn server:app --reload --port=8000 --host=0.0.0.0
-    # se o seu arquivo for server.py com app lá dentro, troque para: server:app
+      - ./:/app
+    restart: unless-stopped
+    networks:
+      - repo-ref-network
 
-
-#  dotnet:
-#    image: your-dotnet-service-image              # substitua pela sua imagem/tag
-#    environment:
-#      ASPNETCORE_URLS: http://+:5000
-#    ports:
-#      - "5000:5000"
-#    healthcheck:
-#      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]  # ajuste a rota
-#      interval: 5s
-#      timeout: 3s
-#      retries: 10
+  # Auto-register all servicopesquisa instances with Consul
+  servicopesquisa-register:
+    image: curlimages/curl:latest
+    depends_on:
+      web:
+        condition: service_started
+    networks:
+      - repo-ref-network
+    environment:
+      - CONSUL_ADDR=http://consul:8500
+    command: 
+      - sh
+      - -c
+      - |
+        while true; do
+          # Try to register instances 1-100 (practical upper limit for auto-discovery)
+          for i in $$(seq 1 100); do
+            container="servicopesquisa-web-$$i"
+            IP=$$(getent hosts $$container 2>/dev/null | awk '{print $$1}' | head -1)
+            if [ -n "$$IP" ]; then
+              curl -X PUT http://consul:8500/v1/agent/service/register \
+              -H "Content-Type: application/json" \
+              -d "{\"ID\":\"$$container\",\"Name\":\"servico-busca\",\"Address\":\"$$IP\",\"Port\":8000,\"Tags\":[\"api\",\"search\"]}" 2>/dev/null || true
+            fi
+          done
+          sleep 30
+        done
+    restart: always
 
   mongo:
     image: mongo:7
+    container_name: search_mongo
     ports:
-      - "27017:27017"   # opcional (só se quiser acessar do host)
+      - "27017:27017"
     volumes:
       - mongo_data:/data/db
     healthcheck:
@@ -44,6 +59,13 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    restart: unless-stopped
+    networks:
+      - repo-ref-network
 
 volumes:
   mongo_data:
+
+networks:
+  repo-ref-network:
+    external: true
